@@ -1,9 +1,10 @@
+;;TODO: change ip and username to variables
 (ns toledohue.hue
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
   ))
-;;TODO: change ip and username to variables
+
 
 ;;INTERFACE:
 ;;GET-IP
