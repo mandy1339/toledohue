@@ -1,21 +1,31 @@
-;;TODO: change ip and username to variables
+;;TODO: create-room, add schedule support
 (ns toledohue.hue
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
-            [clojure.java.io :as io]
-  ))
+            [clojure.java.io :as io]))
 
 
 ;;INTERFACE:
 ;;GET-IP
 ;;CREATE-USER
+;;GET-USER
 ;;TURN-OFF
 ;;TURN-ON
 ;;GET-SYS-INFO
+;;GET-LIGHT-INFO
+;;GET-GROUP-INFO
 ;;FLASH
-;;CUSTOM-CHANGE
+;;CUSTOM-LIGHT-CHANGE
+;;CUSTOM-GROUP-CHANGE
 ;;FLASH-LONG
 ;;BRI
+;;CREATE-GROUP
+;;BRI-GROUP
+;;TURN-ON-GROUP
+;;TURN-OFF-GROUP
+;;FLASH-GROUP
+;;FLASH-LONG-GROUP
+
 
 
 ;;GET-IP
@@ -30,6 +40,7 @@
       :internalipaddress
       )
   )
+
 
 
 ;;CREATE-USER
@@ -59,8 +70,8 @@
                                   :username))
             (println (str "new-username is: " new-username ". It's being saved"))
             (spit file-path new-username))
-        (do (println "try again")))))                   ;;else try again
-)
+        (do (println "try again"))))))                 ;;else try again
+
 
 
 ;;GET-USER
@@ -74,8 +85,8 @@
   (if-not(.exists (io/file file-path))
     (println "You need to create a username first!")
     (do 
-        (slurp file-path)))
-)
+      (clojure.string/trim-newline (slurp file-path)))))
+
 
 
 ;;TURN-OFF
@@ -89,9 +100,8 @@
   (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
       (http/put {:body "{\"on\":false}" :as :json})
       :body
-      first
-      )
-)
+      first))
+
 
 
 ;;TURN-ON
@@ -103,20 +113,44 @@
   (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
       (http/put {:body "{\"on\":true}" :as :json})
       :body
-      first)
-)
+      first))
+
 
 
 ;;GET-SYS-INFO
 ;;----------------------------------------------------------------
 (defn get-sys-info
-  "returns a string with the information fromt he system, use pprint for ez reading
+  "returns a string with the information from he system, use pprint for ez reading
   arg1 username"
   [user]
   (-> (str "http://" (get-ip) "/api/" user)
       (http/get {:as :json})   
-      :body)
-)
+      :body))
+
+
+
+;;GET-LIGHT-INFO
+;;----------------------------------------------------------------
+(defn get-light-info
+  "returns a string with the information from he system, use pprint for ez reading
+  arg1 username"
+  [user]
+  (-> (str "http://" (get-ip) "/api/" user "/lights")
+      (http/get {:as :json})   
+      :body))
+
+
+
+;;GET-GROUP-INFO
+;;----------------------------------------------------------------
+(defn get-group-info
+  "returns a string with the information from he system, use pprint for ez reading
+  arg1 username"
+  [user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups")
+      (http/get {:as :json})   
+      :body))
+
 
 
 ;;FLASH
@@ -128,27 +162,83 @@
   (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
       (http/put {:body "{\"alert\":\"select\"}" :as :json})
       :body
+      first))
+
+
+
+;;FLASH-LONG
+;;----------------------------------------------------------------
+(defn flash-long
+  "flashes light once and return the result
+  arg1 is the light number
+  arg2 is the username"
+  [number user]
+  (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
+      (http/put {:body "{\"alert\":\"lselect\"}" :as :json})
+      :body
       first
       )
 )
 
 
-;;CUSTOM-CHANGE
+
+;;FLASH-GROUP
 ;;----------------------------------------------------------------
-(defn custom-change
+(defn flash-group
+  "flashes light once and return the result
+  arg is the light number"
+  [number user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body "{\"alert\":\"select\"}" :as :json})
+      :body
+      first))
+
+
+
+;;FLASH-LONG-GROUP
+;;----------------------------------------------------------------
+(defn flash-long-group
+  "flashes light once and return the result
+  arg1 is the light number
+  arg2 is the username"
+  [number user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body "{\"alert\":\"lselect\"}" :as :json})
+      :body
+      first))
+
+
+
+;;CUSTOM-LIGHT-CHANGE
+;;----------------------------------------------------------------
+(defn custom-light-change
   "send a state change command to a light in json format
   arg1 is the light number,
-  arg2 is the custom state change
-  the state change is going to be a string of a map use appropiate escape sequences
-  for quotations
+  arg2 is the custom state change e.g. {\"on\":true}
+  arg3 is the username
   returns the result of the operation as a map"
   [number body user]
   (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
       (http/put {:body body :as :json})
       :body
-      first
-      )
-)
+      first))
+
+
+
+;;CUSTOM-GROUP-CHANGE
+;;----------------------------------------------------------------
+(defn custom-group-change
+  "send a state change command to a light in json format
+  arg1 is the group id,
+  arg2 is the custom state change e.g. {\"on\":true}
+  arg3 is the username
+  returns the result of the operation as a map"
+  [number body user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body body :as :json})
+      :body
+      first))
+
 
 
 ;;HUE
@@ -169,20 +259,6 @@
 )
 
 
-;;FLASH-LONG
-;;----------------------------------------------------------------
-(defn flash-long
-  "flashes light once and return the result
-  arg1 is the light number
-  arg2 is the username"
-  [number user]
-  (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
-      (http/put {:body "{\"alert\":\"lselect\"}" :as :json})
-      :body
-      first
-      )
-)
-
 
 ;;BRI
 ;;----------------------------------------------------------------
@@ -195,15 +271,105 @@
   (-> (str "http://" (get-ip) "/api/" user "/lights/"  number "/state")
       (http/put {:body (str "{\"bri\":" bri "}") :as :json})
       :body
-      first
-      )
-)
+      first))
+
+
+
+;;CREATE-GROUP
+;;----------------------------------------------------------------
+(defn create-group
+  "creates a new group on the bridge of type LightGroup
+  arg1 is the name of the group
+  arg2 is the username
+  &lights is the list of the lights. e.g \"1\", \"2\", \"3\" without escape"
+  [name user & lights]
+  (def mybody (json/write-str {"lights" (into [] lights) "name" name "type" "LightGroup"}))
+  (println mybody)
+  (-> (str "http://" (get-ip) "/api/" user "/groups")
+        (http/post {:body mybody :as :json})
+        :body
+        first))
+
+
+
+;;TURN-GROUP-ON
+;;----------------------------------------------------------------
+(defn turn-group-on
+  "turns on the whole group
+  arg1 is the group id,
+  arg2 is the username
+  returns the result of the operation as a map"
+  [number user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body "{\"on\":true}" :as :json})
+      :body
+      first))
+
+
+
+;;TURN-GROUP-OFF
+;;----------------------------------------------------------------
+(defn turn-group-off
+  "turns off the whole group
+  arg1 is the group id,
+  arg2 is the username
+  returns the result of the operation as a map"
+  [number user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body "{\"on\":false}" :as :json})
+      :body
+      first))
+
+
+
+;;HUE-GROUP
+;;----------------------------------------------------------------
+(defn hue-group
+  "changes the hue of the whole group
+  arg1 is the group id,
+  arg2 is the desired hue
+  arg2 is the username
+  returns the result of the operation as a map"
+  [number hue user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body (str "{\"hue\":" hue "}") :as :json})
+      :body
+      first))
+
+
+
+;;BRI-GROUP
+;;----------------------------------------------------------------
+(defn bri-group
+  "changes the bri of the whole group
+  arg1 is the group id,
+  arg2 is the desired bri
+  arg2 is the username
+  returns the result of the operation as a map"
+  [number bri user]
+  (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
+      (http/put {:body (str "{\"bri\":" bri "}") :as :json})
+      :body
+      first))
 
 
 
 
 
 
+
+(comment 
+" 
+  CREATE GROUP
+  URL = http://<bridge ip address>/api/<username>/groups
+  METHOD = POST
+  BODY =
+
+  {"lights": ["1", "2"],
+   "name": "bedroom",
+   "type": "LightGroup"}
+"
+ )
 
 
 
