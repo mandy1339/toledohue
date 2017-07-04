@@ -13,12 +13,12 @@
   (:use [clojure.pprint])
   (:use [ring.adapter.jetty]))
 
-=======
+
 (ns toledohue.hue
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.java.io :as io]))
->>>>>>> d9c37d4153668eb05e361a7498d6f34dabf6b1d0
+
 
 
 ;;INTERFACE:
@@ -37,7 +37,6 @@
 ;;BRI
 ;;CREATE-GROUP
 ;;BRI-GROUP
-<<<<<<< HEAD
 ;;TURN-GROUP-ON
 ;;TURN-GROUP-OFF
 ;;FLASH-GROUP
@@ -58,12 +57,12 @@
 ;;CYCLE-GROUP-1-MONTH
 ;;CYCLE-GROUP-1-YEAR
 ;;CYCLE-GROUP-1-WEEK
-=======
+
 ;;TURN-ON-GROUP
 ;;TURN-OFF-GROUP
 ;;FLASH-GROUP
 ;;FLASH-LONG-GROUP
->>>>>>> d9c37d4153668eb05e361a7498d6f34dabf6b1d0
+
 
 
 
@@ -368,12 +367,8 @@
   arg1 is the group id,
   arg2 is the desired hue
   arg2 is the username
-<<<<<<< HEAD
   returns the result of the operation as a map
   (hue runs from 0 to 65535)"
-=======
-  returns the result of the operation as a map"
->>>>>>> d9c37d4153668eb05e361a7498d6f34dabf6b1d0
   [number hue user]
   (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
       (http/put {:body (str "{\"hue\":" hue "}") :as :json})
@@ -397,7 +392,7 @@
       first))
 
 
-<<<<<<< HEAD
+
 
 ;;CHANNEL FOR SIGNALING THREADS
 (def killchan (chan 1))
@@ -745,29 +740,7 @@
 
 
 
-=======
->>>>>>> d9c37d4153668eb05e361a7498d6f34dabf6b1d0
 
-
-
-
-
-(comment 
-<<<<<<< HEAD
-
-=======
-" 
-  CREATE GROUP
-  URL = http://<bridge ip address>/api/<username>/groups
-  METHOD = POST
-  BODY =
-
-  {"lights": ["1", "2"],
-   "name": "bedroom",
-   "type": "LightGroup"}
-"
->>>>>>> d9c37d4153668eb05e361a7498d6f34dabf6b1d0
- )
 
 
 
