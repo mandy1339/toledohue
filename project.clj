@@ -6,7 +6,12 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
 		 [org.clojure/data.json "0.2.6"]
 		 [clj-http "3.6.1"]
-                 [cheshire "5.7.1"]]
+                 [cheshire "5.7.1"]
+                 [org.clojure/core.async "0.2.395"]
+                 [ring "1.6.0"]
+                 [compojure "1.6.0"]
+                 [ring/ring-defaults "0.3.0"]
+				 [metosin/ring-http-response "0.6.5"]]
   :main ^:skip-aot toledohue.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

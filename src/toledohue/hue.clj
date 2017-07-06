@@ -1,8 +1,24 @@
 ;;TODO: create-room, add schedule support
+;;Most recent update: added cycles.
+(ns toledohue.hue
+  (:require [clj-http.client :as http]
+            [clojure.data.json :as json]
+            [clojure.java.io :as io]
+            [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
+            [ring.middleware.reload :refer [wrap-reload]]
+            [clojure.core.async
+             :as a
+             :refer [>! <! >!! <!! go chan buffer close! thread
+                     alts! alts!! timeout poll! dropping-buffer sliding-buffer]])
+  (:use [clojure.pprint])
+  (:use [ring.adapter.jetty]))
+
+
 (ns toledohue.hue
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
             [clojure.java.io :as io]))
+
 
 
 ;;INTERFACE:
@@ -21,10 +37,32 @@
 ;;BRI
 ;;CREATE-GROUP
 ;;BRI-GROUP
+;;TURN-GROUP-ON
+;;TURN-GROUP-OFF
+;;FLASH-GROUP
+;;FLASH-LONG-GROUP
+;;HUE
+;;HUE-GROUP
+;;CYCLE-30-SECS
+;;CYCLE-1-MIN
+;;CYCLE-1-HR
+;;CYCLE-1-DAY
+;;CYCLE-1-MONTH
+;;CYCLE-1-YEAR
+;;CYCLE-1-WEEK
+;;CYCLE-GROUP-30-SECS
+;;CYCLE-GROUP-1-MIN
+;;CYCLE-GROUP-1-HR
+;;CYCLE-GROUP-1-DAY
+;;CYCLE-GROUP-1-MONTH
+;;CYCLE-GROUP-1-YEAR
+;;CYCLE-GROUP-1-WEEK
+
 ;;TURN-ON-GROUP
 ;;TURN-OFF-GROUP
 ;;FLASH-GROUP
 ;;FLASH-LONG-GROUP
+
 
 
 
@@ -250,6 +288,7 @@
   arg3 username
   returns a map in json format indicating the result
   some values: red-0, yellow-12750, green-25500, blue-46920, pink-56100, red-65280
+  white-32000
   min-0 max-65535)"
   [number hue user]
   (-> (str "http://" (get-ip) "/api/" user "/lights/" number "/state")
@@ -329,7 +368,8 @@
   arg1 is the group id,
   arg2 is the desired hue
   arg2 is the username
-  returns the result of the operation as a map"
+  returns the result of the operation as a map
+  (hue runs from 0 to 65535)"
   [number hue user]
   (-> (str "http://" (get-ip) "/api/" user "/groups/" number "/action")
       (http/put {:body (str "{\"hue\":" hue "}") :as :json})
@@ -355,21 +395,353 @@
 
 
 
+;;CHANNEL FOR SIGNALING THREADS
+(def killchan (chan 1))
 
 
 
-(comment 
-" 
-  CREATE GROUP
-  URL = http://<bridge ip address>/api/<username>/groups
-  METHOD = POST
-  BODY =
 
-  {"lights": ["1", "2"],
-   "name": "bedroom",
-   "type": "LightGroup"}
-"
- )
+
+
+
+(defn kill-cycle
+  "we send a signal to the killchan channel to end any running light cycle"
+  []
+  (poll! killchan)  ;;poll it first to avoid blocking forever
+  (>!! killchan :kill))
+
+
+
+;;CYCLE-30-SECS
+;;----------------------------------------------------------------
+(defn cycle-30-secs
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 30 secs (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (mod 30)
+                (* 2184)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 1000))))
+
+
+
+;;CYCLE-1-MIN
+;;----------------------------------------------------------------
+(defn cycle-1-min
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 60 secs (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 1092)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 1000))))
+
+
+
+
+
+
+
+
+;;CYCLE-1-HR
+;;----------------------------------------------------------------
+(defn cycle-1-hr
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 hr (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "m") (new java.util.Date))
+                read-string
+                (* 1092)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for min to change
+      (Thread/sleep 60000))))
+
+
+
+
+
+;;CYCLE-1-DAY
+;;----------------------------------------------------------------
+(defn cycle-1-day
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 day (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 2730)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for hr to change
+      (Thread/sleep 3600000))))
+
+
+
+
+
+
+
+;;CYCLE-1-MONTH
+;;----------------------------------------------------------------
+(defn cycle-1-month
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 month (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 2114)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 86400000))))
+
+
+
+
+;;CYCLE-1-YEAR
+;;----------------------------------------------------------------
+(defn cycle-1-year
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 year (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 5461)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 2592000000))))
+
+
+
+;;CYCLE-1-WEEK
+;;----------------------------------------------------------------
+(defn cycle-1-week
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 week (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the light number
+  arg2 is the username" 
+  [light user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 9362)))
+      ;;Change the light color to that hue value
+      (hue light hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 86400000))))
+
+
+
+
+
+
+;;CYCLE-GROUP-30-SECS
+;;----------------------------------------------------------------
+(defn cycle-group-30-secs
+  "cycles hue for indicated group from 0 to max and back to 0 (red) 
+  over 30 secs (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (mod 30)
+                (* 2184)))
+      ;;Change the light color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 1000))))
+
+
+
+;;CYCLE-GROUP-1-MIN
+;;----------------------------------------------------------------
+(defn cycle-group-1-min
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 60 secs (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 1092)))
+      ;;Change the light color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 1000))))
+
+
+
+
+
+
+
+
+;;CYCLE-GROUP-1-HR
+;;----------------------------------------------------------------
+(defn cycle-group-1-hr
+  "cycles hue for indicated group from 0 to max and back to 0 (red) 
+  over 1 hr (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "m") (new java.util.Date))
+                read-string
+                (* 1092)))
+      ;;Change the group color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for min to change
+      (Thread/sleep 60000))))
+
+
+
+
+
+;;CYCLE-GROUP-1-DAY
+;;----------------------------------------------------------------
+(defn cycle-group-1-day
+  "cycles hue for indicated light from 0 to max and back to 0 (red) 
+  over 1 day (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 2730)))
+      ;;Change the group color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for hr to change
+      (Thread/sleep 3600000))))
+
+
+
+
+
+
+
+;;CYCLE-GROUP-1-MONTH
+;;----------------------------------------------------------------
+(defn cycle-group-1-month
+  "cycles hue for indicated group from 0 to max and back to 0 (red) 
+  over 1 month (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 2114)))
+      ;;Change the group color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 86400000))))
+
+
+
+
+;;CYCLE-GROUP-1-YEAR
+;;----------------------------------------------------------------
+(defn cycle-group-1-year
+  "cycles hue for indicated group from 0 to max and back to 0 (red) 
+  over 1 year (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 5461)))
+      ;;Change the group color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 2592000000))))
+
+
+
+;;CYCLE-GROUP-1-WEEK
+;;----------------------------------------------------------------
+(defn cycle-group-1-week
+  "cycles hue for indicated group from 0 to max and back to 0 (red) 
+  over 1 week (hue runs from 0 to 65535) 0 = red, 65535 = red
+  arg1 is the group number
+  arg2 is the username" 
+  [group user]
+  (thread
+    (while (nil? (poll! killchan))    ;;While we don't send the kill signal
+      ;;Get the hue value for given second
+      (def hueval (-> (.format (java.text.SimpleDateFormat. "s") (new java.util.Date))
+                read-string
+                (* 9362)))
+      ;;Change the group color to that hue value
+      (hue-group group hueval user)
+      ;;Wait for second to change
+      (Thread/sleep 86400000))))
+
+
+
+
+
+
+
+
+
+
 
 
 
